@@ -173,6 +173,9 @@ export class MemStorage implements IStorage {
     for (const goal of defaultGoals) {
       const goalTracking: GoalTracking = {
         ...goal,
+        description: goal.description || null,
+        currentValue: goal.currentValue || "0",
+        deadline: goal.deadline || null,
         id: this.currentGoalId++,
         isActive: true
       };
@@ -448,6 +451,14 @@ export class MemStorage implements IStorage {
   async createTradeReview(review: InsertTradeReview): Promise<TradeReview> {
     const tradeReview: TradeReview = {
       ...review,
+      exitPrice: review.exitPrice || null,
+      pnl: review.pnl || null,
+      tags: review.tags || null,
+      emotionalState: review.emotionalState || null,
+      setup: review.setup || null,
+      mistakes: review.mistakes || null,
+      lessons: review.lessons || null,
+      rating: review.rating || null,
       id: this.currentTradeId++
     };
     this.tradeReviews.set(tradeReview.id, tradeReview);
@@ -479,6 +490,9 @@ export class MemStorage implements IStorage {
   async createGoal(goal: InsertGoalTracking): Promise<GoalTracking> {
     const goalTracking: GoalTracking = {
       ...goal,
+      description: goal.description || null,
+      currentValue: goal.currentValue || "0",
+      deadline: goal.deadline || null,
       id: this.currentGoalId++,
       isActive: true
     };
@@ -518,7 +532,12 @@ export class MemStorage implements IStorage {
       return updated;
     } else {
       const newMetrics: RiskMetrics = {
-        ...metrics,
+        date: metrics.date,
+        accountBalance: metrics.accountBalance || null,
+        maxDrawdown: metrics.maxDrawdown || null,
+        dailyRisk: metrics.dailyRisk || null,
+        positionSize: metrics.positionSize || null,
+        riskRewardRatio: metrics.riskRewardRatio || null,
         id: this.currentRiskId++
       };
       this.riskMetrics.set(metrics.date, newMetrics);

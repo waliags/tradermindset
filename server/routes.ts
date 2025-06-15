@@ -5,7 +5,10 @@ import {
   insertHabitSchema,
   insertHabitCompletionSchema,
   insertEmotionalCheckInSchema,
-  insertJournalEntrySchema
+  insertJournalEntrySchema,
+  insertTradeReviewSchema,
+  insertGoalTrackingSchema,
+  insertRiskMetricsSchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -141,6 +144,123 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(stats);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch monthly stats" });
+    }
+  });
+
+  // Trade Reviews
+  app.get("/api/trades", async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      const trades = await storage.getTradeReviews(startDate as string, endDate as string);
+      res.json(trades);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch trades" });
+    }
+  });
+
+  app.post("/api/trades", async (req, res) => {
+    try {
+      const validatedTrade = insertTradeReviewSchema.parse(req.body);
+      const trade = await storage.createTradeReview(validatedTrade);
+      res.status(201).json(trade);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid trade data" });
+    }
+  });
+
+  app.put("/api/trades/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedTrade = insertTradeReviewSchema.partial().parse(req.body);
+      const trade = await storage.updateTradeReview(id, validatedTrade);
+      if (!trade) {
+        return res.status(404).json({ message: "Trade not found" });
+      }
+      res.json(trade);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid trade data" });
+    }
+  });
+
+  app.delete("/api/trades/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteTradeReview(id);
+      if (!success) {
+        return res.status(404).json({ message: "Trade not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete trade" });
+    }
+  });
+
+  // Goals
+  app.get("/api/goals", async (req, res) => {
+    try {
+      const goals = await storage.getGoals();
+      res.json(goals);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch goals" });
+    }
+  });
+
+  app.post("/api/goals", async (req, res) => {
+    try {
+      const validatedGoal = insertGoalTrackingSchema.parse(req.body);
+      const goal = await storage.createGoal(validatedGoal);
+      res.status(201).json(goal);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid goal data" });
+    }
+  });
+
+  app.put("/api/goals/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedGoal = insertGoalTrackingSchema.partial().parse(req.body);
+      const goal = await storage.updateGoal(id, validatedGoal);
+      if (!goal) {
+        return res.status(404).json({ message: "Goal not found" });
+      }
+      res.json(goal);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid goal data" });
+    }
+  });
+
+  // Risk Metrics
+  app.get("/api/risk-metrics/:date", async (req, res) => {
+    try {
+      const { date } = req.params;
+      const metrics = await storage.getRiskMetrics(date);
+      res.json(metrics);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch risk metrics" });
+    }
+  });
+
+  app.post("/api/risk-metrics", async (req, res) => {
+    try {
+      const validatedMetrics = insertRiskMetricsSchema.parse(req.body);
+      const metrics = await storage.createOrUpdateRiskMetrics(validatedMetrics);
+      res.json(metrics);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid risk metrics data" });
+    }
+  });
+
+  // Trading Analytics
+  app.get("/api/trading-stats", async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "Start date and end date are required" });
+      }
+      const stats = await storage.getTradingStats(startDate as string, endDate as string);
+      res.json(stats);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch trading stats" });
     }
   });
 
