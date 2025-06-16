@@ -1,5 +1,6 @@
 import { pgTable, text, serial, integer, boolean, date, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
+import { relations } from "drizzle-orm";
 import { z } from "zod";
 
 export const habits = pgTable("habits", {
@@ -67,6 +68,18 @@ export const riskMetrics = pgTable("risk_metrics", {
   positionSize: text("position_size"),
   riskRewardRatio: text("risk_reward_ratio"),
 });
+
+// Relations
+export const habitsRelations = relations(habits, ({ many }) => ({
+  completions: many(habitCompletions),
+}));
+
+export const habitCompletionsRelations = relations(habitCompletions, ({ one }) => ({
+  habit: one(habits, {
+    fields: [habitCompletions.habitId],
+    references: [habits.id],
+  }),
+}));
 
 // Insert schemas
 export const insertHabitSchema = createInsertSchema(habits).omit({

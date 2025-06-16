@@ -13,8 +13,17 @@ import {
   type InsertGoalTracking,
   type RiskMetrics,
   type InsertRiskMetrics,
-  type HabitWithStats
+  type HabitWithStats,
+  habits,
+  habitCompletions,
+  emotionalCheckIns,
+  journalEntries,
+  tradeReviews,
+  goalTracking,
+  riskMetrics
 } from "@shared/schema";
+import { db } from "./db";
+import { eq, and, gte, lte, count, sql, desc } from "drizzle-orm";
 
 export interface IStorage {
   // Habits
@@ -602,4 +611,370 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export class DatabaseStorage implements IStorage {
+  async getHabits(): Promise<Habit[]> {
+    return await db.select().from(habits).where(eq(habits.isActive, true)).orderBy(habits.name);
+  }
+
+  async getHabit(id: number): Promise<Habit | undefined> {
+    const [habit] = await db.select().from(habits).where(eq(habits.id, id));
+    return habit || undefined;
+  }
+
+  async createHabit(insertHabit: InsertHabit): Promise<Habit> {
+    const [habit] = await db.insert(habits).values(insertHabit).returning();
+    return habit;
+  }
+
+  async updateHabit(id: number, updates: Partial<InsertHabit>): Promise<Habit | undefined> {
+    const [habit] = await db.update(habits).set(updates).where(eq(habits.id, id)).returning();
+    return habit || undefined;
+  }
+
+  async deleteHabit(id: number): Promise<boolean> {
+    const result = await db.update(habits).set({ isActive: false }).where(eq(habits.id, id));
+    return result.rowCount > 0;
+  }
+
+  async getHabitCompletions(habitId: number, startDate?: string, endDate?: string): Promise<HabitCompletion[]> {
+    let query = db.select().from(habitCompletions).where(eq(habitCompletions.habitId, habitId));
+    
+    if (startDate && endDate) {
+      query = query.where(and(
+        eq(habitCompletions.habitId, habitId),
+        gte(habitCompletions.date, startDate),
+        lte(habitCompletions.date, endDate)
+      ));
+    }
+    
+    return await query.orderBy(habitCompletions.date);
+  }
+
+  async getHabitCompletion(habitId: number, date: string): Promise<HabitCompletion | undefined> {
+    const [completion] = await db.select().from(habitCompletions)
+      .where(and(eq(habitCompletions.habitId, habitId), eq(habitCompletions.date, date)));
+    return completion || undefined;
+  }
+
+  async createOrUpdateHabitCompletion(completion: InsertHabitCompletion): Promise<HabitCompletion> {
+    const existing = await this.getHabitCompletion(completion.habitId, completion.date);
+    
+    if (existing) {
+      const [updated] = await db.update(habitCompletions)
+        .set({ completed: completion.completed })
+        .where(and(eq(habitCompletions.habitId, completion.habitId), eq(habitCompletions.date, completion.date)))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(habitCompletions).values(completion).returning();
+      return created;
+    }
+  }
+
+  async getEmotionalCheckIn(date: string): Promise<EmotionalCheckIn | undefined> {
+    const [checkIn] = await db.select().from(emotionalCheckIns).where(eq(emotionalCheckIns.date, date));
+    return checkIn || undefined;
+  }
+
+  async createOrUpdateEmotionalCheckIn(checkIn: InsertEmotionalCheckIn): Promise<EmotionalCheckIn> {
+    const existing = await this.getEmotionalCheckIn(checkIn.date);
+    
+    if (existing) {
+      const [updated] = await db.update(emotionalCheckIns)
+        .set({ mood: checkIn.mood })
+        .where(eq(emotionalCheckIns.date, checkIn.date))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(emotionalCheckIns).values(checkIn).returning();
+      return created;
+    }
+  }
+
+  async getJournalEntry(date: string): Promise<JournalEntry | undefined> {
+    const [entry] = await db.select().from(journalEntries).where(eq(journalEntries.date, date));
+    return entry || undefined;
+  }
+
+  async createOrUpdateJournalEntry(entry: InsertJournalEntry): Promise<JournalEntry> {
+    const existing = await this.getJournalEntry(entry.date);
+    
+    if (existing) {
+      const [updated] = await db.update(journalEntries)
+        .set({ content: entry.content })
+        .where(eq(journalEntries.date, entry.date))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(journalEntries).values(entry).returning();
+      return created;
+    }
+  }
+
+  async getTradeReviews(startDate?: string, endDate?: string): Promise<TradeReview[]> {
+    let query = db.select().from(tradeReviews);
+    
+    if (startDate && endDate) {
+      query = query.where(and(
+        gte(tradeReviews.date, startDate),
+        lte(tradeReviews.date, endDate)
+      ));
+    }
+    
+    return await query.orderBy(desc(tradeReviews.date));
+  }
+
+  async getTradeReview(id: number): Promise<TradeReview | undefined> {
+    const [review] = await db.select().from(tradeReviews).where(eq(tradeReviews.id, id));
+    return review || undefined;
+  }
+
+  async createTradeReview(review: InsertTradeReview): Promise<TradeReview> {
+    const [created] = await db.insert(tradeReviews).values(review).returning();
+    return created;
+  }
+
+  async updateTradeReview(id: number, review: Partial<InsertTradeReview>): Promise<TradeReview | undefined> {
+    const [updated] = await db.update(tradeReviews).set(review).where(eq(tradeReviews.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteTradeReview(id: number): Promise<boolean> {
+    const result = await db.delete(tradeReviews).where(eq(tradeReviews.id, id));
+    return result.rowCount > 0;
+  }
+
+  async getGoals(): Promise<GoalTracking[]> {
+    return await db.select().from(goalTracking).where(eq(goalTracking.isActive, true)).orderBy(goalTracking.title);
+  }
+
+  async getGoal(id: number): Promise<GoalTracking | undefined> {
+    const [goal] = await db.select().from(goalTracking).where(eq(goalTracking.id, id));
+    return goal || undefined;
+  }
+
+  async createGoal(goal: InsertGoalTracking): Promise<GoalTracking> {
+    const [created] = await db.insert(goalTracking).values(goal).returning();
+    return created;
+  }
+
+  async updateGoal(id: number, goal: Partial<InsertGoalTracking>): Promise<GoalTracking | undefined> {
+    const [updated] = await db.update(goalTracking).set(goal).where(eq(goalTracking.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteGoal(id: number): Promise<boolean> {
+    const result = await db.update(goalTracking).set({ isActive: false }).where(eq(goalTracking.id, id));
+    return result.rowCount > 0;
+  }
+
+  async getRiskMetrics(date: string): Promise<RiskMetrics | undefined> {
+    const [metrics] = await db.select().from(riskMetrics).where(eq(riskMetrics.date, date));
+    return metrics || undefined;
+  }
+
+  async createOrUpdateRiskMetrics(metrics: InsertRiskMetrics): Promise<RiskMetrics> {
+    const existing = await this.getRiskMetrics(metrics.date);
+    
+    if (existing) {
+      const [updated] = await db.update(riskMetrics)
+        .set(metrics)
+        .where(eq(riskMetrics.date, metrics.date))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(riskMetrics).values(metrics).returning();
+      return created;
+    }
+  }
+
+  async getHabitsWithStats(date: string): Promise<HabitWithStats[]> {
+    const allHabits = await this.getHabits();
+    const habitsWithStats: HabitWithStats[] = [];
+
+    for (const habit of allHabits) {
+      const today = new Date(date);
+      const currentMonth = today.getMonth();
+      const currentYear = today.getFullYear();
+      const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+      
+      // Get completion for today
+      const todayCompletion = await this.getHabitCompletion(habit.id, date);
+      const completedToday = todayCompletion?.completed || false;
+
+      // Get completions for current month
+      const monthStart = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
+      const monthEnd = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+      const monthlyCompletions = await this.getHabitCompletions(habit.id, monthStart, monthEnd);
+      const completedDays = monthlyCompletions.filter(c => c.completed).length;
+      
+      // Calculate completion rate
+      const completionRate = daysInMonth > 0 ? Math.round((completedDays / daysInMonth) * 100) : 0;
+
+      // Calculate current streak
+      let currentStreak = 0;
+      const completionsMap = new Map(monthlyCompletions.map(c => [c.date, c.completed]));
+      const checkDate = new Date(today);
+      
+      while (checkDate >= new Date(monthStart)) {
+        const dateStr = checkDate.toISOString().split('T')[0];
+        if (completionsMap.get(dateStr)) {
+          currentStreak++;
+        } else {
+          break;
+        }
+        checkDate.setDate(checkDate.getDate() - 1);
+      }
+
+      habitsWithStats.push({
+        ...habit,
+        currentStreak,
+        completionRate,
+        completedToday,
+        monthlyCompletions: completedDays,
+        totalDaysThisMonth: daysInMonth
+      });
+    }
+
+    return habitsWithStats;
+  }
+
+  async getWeeklyProgress(startDate: string, endDate: string): Promise<{ date: string; completionRate: number }[]> {
+    const allHabits = await this.getHabits();
+    const progress: { date: string; completionRate: number }[] = [];
+    
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const dateStr = d.toISOString().split('T')[0];
+      let totalCompletions = 0;
+      
+      for (const habit of allHabits) {
+        const completion = await this.getHabitCompletion(habit.id, dateStr);
+        if (completion?.completed) {
+          totalCompletions++;
+        }
+      }
+      
+      const completionRate = allHabits.length > 0 ? Math.round((totalCompletions / allHabits.length) * 100) : 0;
+      progress.push({ date: dateStr, completionRate });
+    }
+    
+    return progress;
+  }
+
+  async getMonthlyStats(year: number, month: number): Promise<{
+    bestStreak: number;
+    totalHabits: number;
+    completionRate: number;
+    perfectDays: number;
+  }> {
+    const allHabits = await this.getHabits();
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
+    const monthEnd = `${year}-${String(month).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+    
+    let totalCompletions = 0;
+    let perfectDays = 0;
+    let bestStreak = 0;
+    
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      let dayCompletions = 0;
+      
+      for (const habit of allHabits) {
+        const completion = await this.getHabitCompletion(habit.id, dateStr);
+        if (completion?.completed) {
+          dayCompletions++;
+          totalCompletions++;
+        }
+      }
+      
+      if (dayCompletions === allHabits.length && allHabits.length > 0) {
+        perfectDays++;
+      }
+    }
+    
+    const totalPossible = allHabits.length * daysInMonth;
+    const completionRate = totalPossible > 0 ? Math.round((totalCompletions / totalPossible) * 100) : 0;
+    
+    return {
+      bestStreak,
+      totalHabits: allHabits.length,
+      completionRate,
+      perfectDays
+    };
+  }
+
+  async getTradingStats(startDate: string, endDate: string): Promise<{
+    totalTrades: number;
+    winRate: number;
+    totalPnL: number;
+    avgWin: number;
+    avgLoss: number;
+    profitFactor: number;
+    emotionalStates: Record<string, number>;
+  }> {
+    const trades = await this.getTradeReviews(startDate, endDate);
+    
+    const totalTrades = trades.length;
+    const emotionalStates: Record<string, number> = {};
+    
+    if (totalTrades === 0) {
+      return {
+        totalTrades: 0,
+        winRate: 0,
+        totalPnL: 0,
+        avgWin: 0,
+        avgLoss: 0,
+        profitFactor: 0,
+        emotionalStates: {}
+      };
+    }
+    
+    let wins = 0;
+    let totalPnL = 0;
+    let totalWins = 0;
+    let totalLosses = 0;
+    let winCount = 0;
+    let lossCount = 0;
+    
+    trades.forEach(trade => {
+      if (trade.pnl) {
+        const pnl = parseFloat(trade.pnl);
+        totalPnL += pnl;
+        
+        if (pnl > 0) {
+          wins++;
+          totalWins += pnl;
+          winCount++;
+        } else if (pnl < 0) {
+          totalLosses += Math.abs(pnl);
+          lossCount++;
+        }
+      }
+      
+      if (trade.emotionalState) {
+        emotionalStates[trade.emotionalState] = (emotionalStates[trade.emotionalState] || 0) + 1;
+      }
+    });
+    
+    const winRate = (wins / totalTrades) * 100;
+    const avgWin = winCount > 0 ? totalWins / winCount : 0;
+    const avgLoss = lossCount > 0 ? totalLosses / lossCount : 0;
+    const profitFactor = avgLoss > 0 ? avgWin / avgLoss : 0;
+    
+    return {
+      totalTrades,
+      winRate: Math.round(winRate),
+      totalPnL: Math.round(totalPnL * 100) / 100,
+      avgWin: Math.round(avgWin * 100) / 100,
+      avgLoss: Math.round(avgLoss * 100) / 100,
+      profitFactor: Math.round(profitFactor * 100) / 100,
+      emotionalStates
+    };
+  }
+}
+
+export const storage = new DatabaseStorage();
