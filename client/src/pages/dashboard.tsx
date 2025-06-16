@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChartLine, Heart, Plus, Pen, Flame, Check, BarChart3, Target, TrendingUp } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 import HabitCard from "@/components/habit-card";
 import AddHabitModal from "@/components/add-habit-modal";
 import TradeReviewModal from "@/components/trade-review-modal";
@@ -120,6 +121,7 @@ export default function Dashboard() {
               <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100">TraderHabits</h1>
             </div>
             <div className="flex items-center space-x-2">
+              <ThemeToggle />
               <Button onClick={() => setShowTradeModal(true)} size="sm" className="hidden sm:flex">
                 <Plus className="mr-1 w-4 h-4" />
                 Add Trade
@@ -183,22 +185,22 @@ export default function Dashboard() {
         </Card>
 
         <Tabs defaultValue="habits" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 h-12 p-1">
+          <TabsList className="grid w-full grid-cols-4 h-12 p-1 sm:grid">
             <TabsTrigger value="habits" className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm">
               <Check className="w-3 h-3 sm:w-4 sm:h-4" />
-              <span className="hidden xs:inline sm:inline">Habits</span>
+              <span className="hidden xs:inline">Habits</span>
             </TabsTrigger>
             <TabsTrigger value="analytics" className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm">
               <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4" />
-              <span className="hidden xs:inline sm:inline">Analytics</span>
+              <span className="hidden xs:inline">Analytics</span>
             </TabsTrigger>
             <TabsTrigger value="goals" className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm">
               <Target className="w-3 h-3 sm:w-4 sm:h-4" />
-              <span className="hidden xs:inline sm:inline">Goals</span>
+              <span className="hidden xs:inline">Goals</span>
             </TabsTrigger>
             <TabsTrigger value="journal" className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm">
               <Pen className="w-3 h-3 sm:w-4 sm:h-4" />
-              <span className="hidden xs:inline sm:inline">Journal</span>
+              <span className="hidden xs:inline">Journal</span>
             </TabsTrigger>
           </TabsList>
 
@@ -384,6 +386,9 @@ export default function Dashboard() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Mobile spacing for bottom navigation */}
+      <div className="h-16 sm:hidden" />
 
       <AddHabitModal 
         open={showAddHabitModal} 
