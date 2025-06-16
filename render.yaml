@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: habit-tracker
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+databases:
+  - name: habit-tracker-db
+    databaseName: habittracker
+    user: habittracker
+    plan: free
